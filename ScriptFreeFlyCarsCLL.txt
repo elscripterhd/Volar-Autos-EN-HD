@@ -1,0 +1,662 @@
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local Camera = workspace.CurrentCamera
+
+
+local CORRECT_KEY = "FREE_FlyCars_DiscordCommunity_2026" --
+
+
+local flying = false
+local flySpeed = 100
+local bv, bg
+local keysPressed = {}
+local renderConnection
+
+local flingActive = false
+local flingSpeed = 30
+local bav
+
+local inputBeganConnection
+local inputEndedConnection
+local dragChangedConnection
+
+local Translations = {
+    es = {
+        title = "ScriptFlyCarsCLL",
+        enterKey = "Introduce tu llave:",
+        placeholderKey = "Ingresa la key...",
+        submitKey = "Verificar Key",
+        keyInfo = "La llave está en el discord:",
+        copyDiscord = "Copiar Discord",
+        wrongKey = "¡Llave Incorrecta!",
+        toggleFlyOn = "Activar Vuelo",
+        toggleFlyOff = "Desactivar Vuelo",
+        flySpeed = "Velocidad Vuelo:",
+        toggleFlingOn = "Activar Giro",
+        toggleFlingOff = "Desactivar Giro",
+        flingSpeed = "Velocidad Giro:",
+        controls = "Controles:\nW, A, S, D = Dirección\nE = Volar más alto | Q = Descender\n\nAjusta 'Velocidad Giro' para controlar la fuerza de rotación sin salir del mapa.",
+        copied = "¡Copiado!",
+        copyLink = "Copiar Link",
+        killScript = "💀🔪 Kill Script",
+        notification = "Presiona Right Shift para abrir el script nuevamente."
+    },
+    en = {
+        title = "ScriptFlyCarsCLL",
+        enterKey = "Put the key:",
+        placeholderKey = "Enter key here...",
+        submitKey = "Verify Key",
+        keyInfo = "The key is in the discord:",
+        copyDiscord = "Copy Discord",
+        wrongKey = "Wrong Key!",
+        toggleFlyOn = "Enable Fly",
+        toggleFlyOff = "Disable Fly",
+        flySpeed = "Fly Speed:",
+        toggleFlingOn = "Enable Fling",
+        toggleFlingOff = "Disable Fling",
+        flingSpeed = "Fling Speed:",
+        controls = "Controls:\nW, A, S, D = Movement\nE = Fly Higher | Q = Lower\n\nAdjust 'Fling Speed' to control rotation strength without leaving the map.",
+        copied = "Copied!",
+        copyLink = "Copy Link",
+        killScript = "💀🔪 Kill Script",
+        notification = "Press Right Shift to open the script again."
+    }
+}
+
+local currentLang = Translations.es
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "VehicleFlyGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = PlayerGui
+
+
+local langFrame = Instance.new("Frame")
+langFrame.Name = "LangFrame"
+langFrame.Size = UDim2.new(0, 260, 0, 160)
+langFrame.Position = UDim2.new(0.5, -130, 0.5, -80)
+langFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+langFrame.BorderSizePixel = 0
+langFrame.Parent = screenGui
+
+local langCorner = Instance.new("UICorner")
+langCorner.CornerRadius = UDim.new(0, 10)
+langCorner.Parent = langFrame
+
+local langTitle = Instance.new("TextLabel")
+langTitle.Size = UDim2.new(1, 0, 0, 40)
+langTitle.Position = UDim2.new(0, 0, 0, 10)
+langTitle.BackgroundTransparency = 1
+langTitle.Text = "Select Language / Selecciona Idioma"
+langTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+langTitle.TextSize = 14
+langTitle.Font = Enum.Font.SourceSansBold
+langTitle.Parent = langFrame
+
+local esBtn = Instance.new("TextButton")
+esBtn.Size = UDim2.new(0, 200, 0, 35)
+esBtn.Position = UDim2.new(0.5, -100, 0, 60)
+esBtn.BackgroundColor3 = Color3.fromRGB(0, 122, 255)
+esBtn.Text = "Español"
+esBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+esBtn.TextSize = 16
+esBtn.Font = Enum.Font.SourceSansBold
+esBtn.Parent = langFrame
+
+local esCorner = Instance.new("UICorner")
+esCorner.CornerRadius = UDim.new(0, 6)
+esCorner.Parent = esBtn
+
+local enBtn = Instance.new("TextButton")
+enBtn.Size = UDim2.new(0, 200, 0, 35)
+enBtn.Position = UDim2.new(0.5, -100, 0, 105)
+enBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+enBtn.Text = "English"
+enBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+enBtn.TextSize = 16
+enBtn.Font = Enum.Font.SourceSansBold
+enBtn.Parent = langFrame
+
+local enCorner = Instance.new("UICorner")
+enCorner.CornerRadius = UDim.new(0, 6)
+enCorner.Parent = enBtn
+
+
+local keyFrame = Instance.new("Frame")
+keyFrame.Name = "KeyFrame"
+keyFrame.Size = UDim2.new(0, 300, 0, 250)
+keyFrame.Position = UDim2.new(0.5, -150, 0.5, -125)
+keyFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+keyFrame.BorderSizePixel = 0
+keyFrame.Visible = false
+keyFrame.Parent = screenGui
+
+local keyCorner = Instance.new("UICorner")
+keyCorner.CornerRadius = UDim.new(0, 10)
+keyCorner.Parent = keyFrame
+
+local enterKeyLabel = Instance.new("TextLabel")
+enterKeyLabel.Size = UDim2.new(1, -20, 0, 30)
+enterKeyLabel.Position = UDim2.new(0, 10, 0, 10)
+enterKeyLabel.BackgroundTransparency = 1
+enterKeyLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+enterKeyLabel.TextSize = 16
+enterKeyLabel.Font = Enum.Font.SourceSansBold
+enterKeyLabel.Parent = keyFrame
+
+local keyInput = Instance.new("TextBox")
+keyInput.Size = UDim2.new(0, 240, 0, 35)
+keyInput.Position = UDim2.new(0.5, -120, 0, 45)
+keyInput.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+keyInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+keyInput.TextSize = 14
+keyInput.Font = Enum.Font.SourceSans
+keyInput.Parent = keyFrame
+
+local keyInputCorner = Instance.new("UICorner")
+keyInputCorner.CornerRadius = UDim.new(0, 6)
+keyInputCorner.Parent = keyInput
+
+local submitKeyBtn = Instance.new("TextButton")
+submitKeyBtn.Size = UDim2.new(0, 140, 0, 30)
+submitKeyBtn.Position = UDim2.new(0.5, -70, 0, 90)
+submitKeyBtn.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
+submitKeyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+submitKeyBtn.TextSize = 14
+submitKeyBtn.Font = Enum.Font.SourceSansBold
+submitKeyBtn.Parent = keyFrame
+
+local submitCorner = Instance.new("UICorner")
+submitCorner.CornerRadius = UDim.new(0, 6)
+submitCorner.Parent = submitKeyBtn
+
+local keyInfoLabel = Instance.new("TextLabel")
+keyInfoLabel.Size = UDim2.new(1, -20, 0, 20)
+keyInfoLabel.Position = UDim2.new(0, 10, 0, 130)
+keyInfoLabel.BackgroundTransparency = 1
+keyInfoLabel.TextColor3 = Color3.fromRGB(180, 180, 190)
+keyInfoLabel.TextSize = 13
+keyInfoLabel.Font = Enum.Font.SourceSans
+keyInfoLabel.Parent = keyFrame
+
+local keyDiscordText = Instance.new("TextLabel")
+keyDiscordText.Size = UDim2.new(1, -20, 0, 20)
+keyDiscordText.Position = UDim2.new(0, 10, 0, 150)
+keyDiscordText.BackgroundTransparency = 1
+keyDiscordText.Text = "discord:https://discord.gg/nNd4FwH4sS"
+keyDiscordText.TextColor3 = Color3.fromRGB(0, 200, 255)
+keyDiscordText.TextSize = 12
+keyDiscordText.Font = Enum.Font.SourceSans
+keyDiscordText.Parent = keyFrame
+
+local copyDiscordBtn = Instance.new("TextButton")
+copyDiscordBtn.Size = UDim2.new(0, 160, 0, 30)
+copyDiscordBtn.Position = UDim2.new(0.5, -80, 0, 180)
+copyDiscordBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+copyDiscordBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+copyDiscordBtn.TextSize = 14
+copyDiscordBtn.Font = Enum.Font.SourceSansBold
+copyDiscordBtn.Parent = keyFrame
+
+local copyKeyCorner = Instance.new("UICorner")
+copyKeyCorner.CornerRadius = UDim.new(0, 6)
+copyKeyCorner.Parent = copyDiscordBtn
+
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 300, 0, 500)
+mainFrame.Position = UDim2.new(0.5, -150, 0.5, -250)
+mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+mainFrame.BorderSizePixel = 0
+mainFrame.Visible = false
+mainFrame.Parent = screenGui
+
+local frameCorner = Instance.new("UICorner")
+frameCorner.CornerRadius = UDim.new(0, 10)
+frameCorner.Parent = mainFrame
+
+local flyTitle = Instance.new("TextLabel")
+flyTitle.Size = UDim2.new(1, -40, 0, 35)
+flyTitle.Position = UDim2.new(0, 10, 0, 5)
+flyTitle.BackgroundTransparency = 1
+flyTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+flyTitle.TextSize = 18
+flyTitle.Font = Enum.Font.SourceSansBold
+flyTitle.TextXAlignment = Enum.TextXAlignment.Left
+flyTitle.Parent = mainFrame
+
+local closeButton = Instance.new("TextButton")
+closeButton.Size = UDim2.new(0, 26, 0, 26)
+closeButton.Position = UDim2.new(1, -32, 0, 8)
+closeButton.BackgroundColor3 = Color3.fromRGB(220, 53, 69)
+closeButton.Text = "X"
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.TextSize = 14
+closeButton.Font = Enum.Font.SourceSansBold
+closeButton.Parent = mainFrame
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 6)
+closeCorner.Parent = closeButton
+
+
+local notificationFrame = Instance.new("Frame")
+notificationFrame.Size = UDim2.new(0, 250, 0, 50)
+notificationFrame.Position = UDim2.new(1, -260, 1, -60)
+notificationFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+notificationFrame.BorderSizePixel = 0
+notificationFrame.Visible = false
+notificationFrame.Parent = screenGui
+
+local notifCorner = Instance.new("UICorner")
+notifCorner.CornerRadius = UDim.new(0, 8)
+notifCorner.Parent = notificationFrame
+
+local notifStroke = Instance.new("UIStroke")
+notifStroke.Color = Color3.fromRGB(0, 200, 255)
+notifStroke.Thickness = 1
+notifStroke.Parent = notificationFrame
+
+local notificationText = Instance.new("TextLabel")
+notificationText.Size = UDim2.new(1, -20, 1, 0)
+notificationText.Position = UDim2.new(0, 10, 0, 0)
+notificationText.BackgroundTransparency = 1
+notificationText.TextColor3 = Color3.fromRGB(255, 255, 255)
+notificationText.TextSize = 13
+notificationText.Font = Enum.Font.SourceSansBold
+notificationText.TextWrapped = true
+notificationText.Parent = notificationFrame
+
+local notifThread
+
+local function showNotification()
+    notificationFrame.Visible = true
+    notificationFrame.BackgroundTransparency = 0
+    notificationText.TextTransparency = 0
+    notifStroke.Transparency = 0
+
+    if notifThread then task.cancel(notifThread) end
+
+    notifThread = task.delay(4, function()
+        local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        TweenService:Create(notificationFrame, tweenInfo, {BackgroundTransparency = 1}):Play()
+        TweenService:Create(notificationText, tweenInfo, {TextTransparency = 1}):Play()
+        local strokeTween = TweenService:Create(notifStroke, tweenInfo, {Transparency = 1})
+        strokeTween:Play()
+        strokeTween.Completed:Wait()
+        notificationFrame.Visible = false
+    end)
+end
+
+local function toggleMenu()
+    mainFrame.Visible = not mainFrame.Visible
+    if not mainFrame.Visible then
+        showNotification()
+    end
+end
+
+closeButton.MouseButton1Click:Connect(toggleMenu)
+
+local toggleButton = Instance.new("TextButton")
+toggleButton.Size = UDim2.new(0, 220, 0, 40)
+toggleButton.Position = UDim2.new(0.5, -110, 0, 45)
+toggleButton.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
+toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleButton.TextSize = 16
+toggleButton.Font = Enum.Font.SourceSansBold
+toggleButton.Parent = mainFrame
+
+local btnCorner = Instance.new("UICorner")
+btnCorner.CornerRadius = UDim.new(0, 8)
+btnCorner.Parent = toggleButton
+
+local speedLabel = Instance.new("TextLabel")
+speedLabel.Size = UDim2.new(0, 120, 0, 30)
+speedLabel.Position = UDim2.new(0, 20, 0, 95)
+speedLabel.BackgroundTransparency = 1
+speedLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+speedLabel.TextSize = 14
+speedLabel.Font = Enum.Font.SourceSansBold
+speedLabel.TextXAlignment = Enum.TextXAlignment.Left
+speedLabel.Parent = mainFrame
+
+local speedInput = Instance.new("TextBox")
+speedInput.Size = UDim2.new(0, 90, 0, 30)
+speedInput.Position = UDim2.new(0, 170, 0, 95)
+speedInput.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+speedInput.Text = tostring(flySpeed)
+speedInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+speedInput.TextSize = 15
+speedInput.Font = Enum.Font.SourceSansBold
+speedInput.PlaceholderText = "Núm"
+speedInput.Parent = mainFrame
+
+local inputCorner = Instance.new("UICorner")
+inputCorner.CornerRadius = UDim.new(0, 6)
+inputCorner.Parent = speedInput
+
+speedInput.FocusLost:Connect(function()
+    local num = tonumber(speedInput.Text)
+    if num and num >= 0 then
+        flySpeed = num
+    else
+        speedInput.Text = tostring(flySpeed)
+    end
+end)
+
+local flingButton = Instance.new("TextButton")
+flingButton.Size = UDim2.new(0, 220, 0, 40)
+flingButton.Position = UDim2.new(0.5, -110, 0, 135)
+flingButton.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
+flingButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+flingButton.TextSize = 16
+flingButton.Font = Enum.Font.SourceSansBold
+flingButton.Parent = mainFrame
+
+local flingBtnCorner = Instance.new("UICorner")
+flingBtnCorner.CornerRadius = UDim.new(0, 8)
+flingBtnCorner.Parent = flingButton
+
+local flingSpeedLabel = Instance.new("TextLabel")
+flingSpeedLabel.Size = UDim2.new(0, 120, 0, 30)
+flingSpeedLabel.Position = UDim2.new(0, 20, 0, 185)
+flingSpeedLabel.BackgroundTransparency = 1
+flingSpeedLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+flingSpeedLabel.TextSize = 14
+flingSpeedLabel.Font = Enum.Font.SourceSansBold
+flingSpeedLabel.TextXAlignment = Enum.TextXAlignment.Left
+flingSpeedLabel.Parent = mainFrame
+
+local flingSpeedInput = Instance.new("TextBox")
+flingSpeedInput.Size = UDim2.new(0, 90, 0, 30)
+flingSpeedInput.Position = UDim2.new(0, 170, 0, 185)
+flingSpeedInput.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+flingSpeedInput.Text = tostring(flingSpeed)
+flingSpeedInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+flingSpeedInput.TextSize = 15
+flingSpeedInput.Font = Enum.Font.SourceSansBold
+flingSpeedInput.PlaceholderText = "Núm"
+flingSpeedInput.Parent = mainFrame
+
+local flingInputCorner = Instance.new("UICorner")
+flingInputCorner.CornerRadius = UDim.new(0, 6)
+flingInputCorner.Parent = flingSpeedInput
+
+flingSpeedInput.FocusLost:Connect(function()
+    local num = tonumber(flingSpeedInput.Text)
+    if num and num >= 0 then
+        flingSpeed = num
+        if bav then bav.AngularVelocity = Vector3.new(0, flingSpeed, 0) end
+    else
+        flingSpeedInput.Text = tostring(flingSpeed)
+    end
+end)
+
+local infoLabel = Instance.new("TextLabel")
+infoLabel.Size = UDim2.new(1, -20, 0, 100)
+infoLabel.Position = UDim2.new(0, 10, 0, 225)
+infoLabel.BackgroundTransparency = 1
+infoLabel.TextColor3 = Color3.fromRGB(180, 180, 190)
+infoLabel.TextSize = 13
+infoLabel.Font = Enum.Font.SourceSans
+infoLabel.TextWrapped = true
+infoLabel.Parent = mainFrame
+
+local creditsLabel = Instance.new("TextLabel")
+creditsLabel.Size = UDim2.new(1, -20, 0, 25)
+creditsLabel.Position = UDim2.new(0, 10, 0, 330)
+creditsLabel.BackgroundTransparency = 1
+creditsLabel.Text = "scripted by ScriptOwnerCLL"
+creditsLabel.TextColor3 = Color3.fromRGB(0, 200, 255)
+creditsLabel.TextSize = 14
+creditsLabel.Font = Enum.Font.SourceSansBold
+creditsLabel.Parent = mainFrame
+
+local discordText = Instance.new("TextLabel")
+discordText.Size = UDim2.new(1, -20, 0, 20)
+discordText.Position = UDim2.new(0, 10, 0, 355)
+discordText.BackgroundTransparency = 1
+discordText.Text = "discord:https://discord.gg/nNd4FwH4sS"
+discordText.TextColor3 = Color3.fromRGB(150, 150, 160)
+discordText.TextSize = 12
+discordText.Font = Enum.Font.SourceSans
+discordText.Parent = mainFrame
+
+local copyButton = Instance.new("TextButton")
+copyButton.Size = UDim2.new(0, 160, 0, 30)
+copyButton.Position = UDim2.new(0.5, -80, 0, 385)
+copyButton.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+copyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+copyButton.TextSize = 14
+copyButton.Font = Enum.Font.SourceSansBold
+copyButton.Parent = mainFrame
+
+local copyCorner = Instance.new("UICorner")
+copyCorner.CornerRadius = UDim.new(0, 6)
+copyCorner.Parent = copyButton
+
+local killButton = Instance.new("TextButton")
+killButton.Size = UDim2.new(0, 160, 0, 35)
+killButton.Position = UDim2.new(0.5, -80, 0, 440)
+killButton.BackgroundColor3 = Color3.fromRGB(220, 53, 69)
+killButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+killButton.TextSize = 14
+killButton.Font = Enum.Font.SourceSansBold
+killButton.Parent = mainFrame
+
+local killCorner = Instance.new("UICorner")
+killCorner.CornerRadius = UDim.new(0, 6)
+killCorner.Parent = killButton
+
+
+local function applyLanguage(lang)
+    currentLang = Translations[lang]
+
+
+    enterKeyLabel.Text = currentLang.enterKey
+    keyInput.PlaceholderText = currentLang.placeholderKey
+    submitKeyBtn.Text = currentLang.submitKey
+    keyInfoLabel.Text = currentLang.keyInfo
+    copyDiscordBtn.Text = currentLang.copyDiscord
+
+
+    flyTitle.Text = currentLang.title
+    toggleButton.Text = flying and currentLang.toggleFlyOff or currentLang.toggleFlyOn
+    speedLabel.Text = currentLang.flySpeed
+    flingButton.Text = flingActive and currentLang.toggleFlingOff or currentLang.toggleFlingOn
+    flingSpeedLabel.Text = currentLang.flingSpeed
+    infoLabel.Text = currentLang.controls
+    copyButton.Text = currentLang.copyLink
+    killButton.Text = currentLang.killScript
+    notificationText.Text = currentLang.notification
+
+
+    langFrame.Visible = false
+    keyFrame.Visible = true
+end
+
+esBtn.MouseButton1Click:Connect(function() applyLanguage("es") end)
+enBtn.MouseButton1Click:Connect(function() applyLanguage("en") end)
+
+
+local function copyDiscordUrl(button)
+    local discordUrl = "https://discord.gg/nNd4FwH4sS"
+    if setclipboard then setclipboard(discordUrl)
+    elseif toclipboard then toclipboard(discordUrl) end
+
+    button.Text = currentLang.copied
+    button.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
+    task.delay(1.5, function()
+        button.Text = (button == copyDiscordBtn) and currentLang.copyDiscord or currentLang.copyLink
+        button.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+    end)
+end
+
+copyDiscordBtn.MouseButton1Click:Connect(function() copyDiscordUrl(copyDiscordBtn) end)
+copyButton.MouseButton1Click:Connect(function() copyDiscordUrl(copyButton) end)
+
+
+submitKeyBtn.MouseButton1Click:Connect(function()
+    if keyInput.Text == CORRECT_KEY then
+        keyFrame.Visible = false
+        mainFrame.Visible = true
+    else
+        submitKeyBtn.Text = currentLang.wrongKey
+        submitKeyBtn.BackgroundColor3 = Color3.fromRGB(220, 53, 69)
+        task.delay(1.5, function()
+            submitKeyBtn.Text = currentLang.submitKey
+            submitKeyBtn.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
+        end)
+    end
+end)
+
+
+local function stopFling()
+    flingActive = false
+    if bav then bav:Destroy() end
+    flingButton.Text = currentLang.toggleFlingOn
+    flingButton.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
+end
+
+local function startFling(vehicle)
+    local targetPart = vehicle.PrimaryPart or vehicle:FindFirstChildWhichIsA("BasePart")
+    if not targetPart then return end
+    flingActive = true
+    flingButton.Text = currentLang.toggleFlingOff
+    flingButton.BackgroundColor3 = Color3.fromRGB(220, 53, 69)
+
+    bav = Instance.new("BodyAngularVelocity")
+    bav.MaxTorque = Vector3.new(0, math.huge, 0)
+    bav.AngularVelocity = Vector3.new(0, flingSpeed, 0)
+    bav.Parent = targetPart
+end
+
+flingButton.MouseButton1Click:Connect(function()
+    local character = LocalPlayer.Character
+    if character and character:FindFirstChildOfClass("Humanoid") then
+        local seat = character.Humanoid.SeatPart
+        if seat and seat.Parent then
+            if flingActive then stopFling() else startFling(seat.Parent) end
+        end
+    end
+end)
+
+local function stopFlying()
+    flying = false
+    if renderConnection then renderConnection:Disconnect() end
+    if bv then bv:Destroy() end
+    if bg then bg:Destroy() end
+    toggleButton.Text = currentLang.toggleFlyOn
+    toggleButton.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
+end
+
+local function startFlying(vehicle)
+    if flying then return end
+    flying = true
+    toggleButton.Text = currentLang.toggleFlyOff
+    toggleButton.BackgroundColor3 = Color3.fromRGB(220, 53, 69)
+
+    local targetPart = vehicle.PrimaryPart or vehicle:FindFirstChildWhichIsA("BasePart")
+    if not targetPart then return end
+
+    bv = Instance.new("BodyVelocity")
+    bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+    bv.Velocity = Vector3.zero
+    bv.Parent = targetPart
+
+    bg = Instance.new("BodyGyro")
+    bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+    bg.CFrame = targetPart.CFrame
+    bg.Parent = targetPart
+
+    renderConnection = RunService.RenderStepped:Connect(function()
+        if not flying or not vehicle or not vehicle.Parent then
+            stopFlying()
+            return
+        end
+        local moveDir = Vector3.zero
+        local camCF = Camera.CFrame
+
+        if keysPressed[Enum.KeyCode.W] then moveDir = moveDir + camCF.LookVector end
+        if keysPressed[Enum.KeyCode.S] then moveDir = moveDir - camCF.LookVector end
+        if keysPressed[Enum.KeyCode.A] then moveDir = moveDir - camCF.RightVector end
+        if keysPressed[Enum.KeyCode.D] then moveDir = moveDir + camCF.RightVector end
+        if keysPressed[Enum.KeyCode.E] then moveDir = moveDir + Vector3.new(0, 1, 0) end
+        if keysPressed[Enum.KeyCode.Q] then moveDir = moveDir - Vector3.new(0, 1, 0) end
+
+        bv.Velocity = moveDir * flySpeed
+        bg.CFrame = camCF
+    end)
+end
+
+toggleButton.MouseButton1Click:Connect(function()
+    if flying then
+        stopFlying()
+    else
+        local character = LocalPlayer.Character
+        if character and character:FindFirstChildOfClass("Humanoid") then
+            local seat = character.Humanoid.SeatPart
+            if seat and seat.Parent then startFlying(seat.Parent) end
+        end
+    end
+end)
+
+
+killButton.MouseButton1Click:Connect(function()
+    stopFlying()
+    stopFling()
+    if inputBeganConnection then inputBeganConnection:Disconnect() end
+    if inputEndedConnection then inputEndedConnection:Disconnect() end
+    if dragChangedConnection then dragChangedConnection:Disconnect() end
+    screenGui:Destroy()
+end)
+
+inputBeganConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if input.KeyCode == Enum.KeyCode.RightShift then
+        if not langFrame.Visible and not keyFrame.Visible then
+            toggleMenu()
+        end
+    elseif not gameProcessed then
+        keysPressed[input.KeyCode] = true
+    end
+end)
+
+inputEndedConnection = UserInputService.InputEnded:Connect(function(input)
+    keysPressed[input.KeyCode] = nil
+end)
+
+local dragging = false
+local dragInput, dragStart, startPos
+
+local function update(input)
+    local delta = input.Position - dragStart
+    mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+mainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = mainFrame.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then dragging = false end
+        end)
+    end
+end)
+
+mainFrame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+dragChangedConnection = UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then update(input) end
+end)
