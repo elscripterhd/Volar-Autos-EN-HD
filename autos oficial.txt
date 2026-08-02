@@ -1,0 +1,357 @@
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local Camera = workspace.CurrentCamera
+
+-- Variables de configuración de Vuelo
+local flying = false
+local flySpeed = 100
+local bv, bg
+local keysPressed = {}
+local renderConnection
+
+-- Variables de configuración de Giro / Fling
+local flingActive = false
+local flingSpeed = 30 -- Velocidad de giro moderada por defecto
+local bav
+
+-- 1. Creación de la Interfaz (ScreenGui)
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "VehicleFlyGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = PlayerGui
+
+-- Panel Principal
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 300, 0, 390)
+mainFrame.Position = UDim2.new(0.5, -150, 0.5, -195)
+mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+mainFrame.BorderSizePixel = 0
+mainFrame.Parent = screenGui
+
+local frameCorner = Instance.new("UICorner")
+frameCorner.CornerRadius = UDim.new(0, 10)
+frameCorner.Parent = mainFrame
+
+-- Título
+local flyTitle = Instance.new("TextLabel")
+flyTitle.Name = "FlyTitle"
+flyTitle.Size = UDim2.new(1, -40, 0, 35)
+flyTitle.Position = UDim2.new(0, 10, 0, 5)
+flyTitle.BackgroundTransparency = 1
+flyTitle.Text = "Panel de Vehículo"
+flyTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+flyTitle.TextSize = 18
+flyTitle.Font = Enum.Font.SourceSansBold
+flyTitle.TextXAlignment = Enum.TextXAlignment.Left
+flyTitle.Parent = mainFrame
+
+-- Botón Cerrar (X)
+local closeButton = Instance.new("TextButton")
+closeButton.Name = "CloseButton"
+closeButton.Size = UDim2.new(0, 26, 0, 26)
+closeButton.Position = UDim2.new(1, -32, 0, 8)
+closeButton.BackgroundColor3 = Color3.fromRGB(220, 53, 69)
+closeButton.Text = "X"
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.TextSize = 14
+closeButton.Font = Enum.Font.SourceSansBold
+closeButton.Parent = mainFrame
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 6)
+closeCorner.Parent = closeButton
+
+closeButton.MouseButton1Click:Connect(function()
+    mainFrame.Visible = false
+end)
+
+-- Botón Activar / Desactivar Vuelo
+local toggleButton = Instance.new("TextButton")
+toggleButton.Name = "ToggleButton"
+toggleButton.Size = UDim2.new(0, 220, 0, 40)
+toggleButton.Position = UDim2.new(0.5, -110, 0, 45)
+toggleButton.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
+toggleButton.Text = "Activar Vuelo"
+toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleButton.TextSize = 16
+toggleButton.Font = Enum.Font.SourceSansBold
+toggleButton.Parent = mainFrame
+
+local btnCorner = Instance.new("UICorner")
+btnCorner.CornerRadius = UDim.new(0, 8)
+btnCorner.Parent = toggleButton
+
+-- Control de Velocidad de Vuelo
+local speedLabel = Instance.new("TextLabel")
+speedLabel.Name = "SpeedLabel"
+speedLabel.Size = UDim2.new(0, 100, 0, 30)
+speedLabel.Position = UDim2.new(0, 30, 0, 95)
+speedLabel.BackgroundTransparency = 1
+speedLabel.Text = "Velocidad Vuelo:"
+speedLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+speedLabel.TextSize = 14
+speedLabel.Font = Enum.Font.SourceSansBold
+speedLabel.TextXAlignment = Enum.TextXAlignment.Left
+speedLabel.Parent = mainFrame
+
+local speedInput = Instance.new("TextBox")
+speedInput.Name = "SpeedInput"
+speedInput.Size = UDim2.new(0, 100, 0, 30)
+speedInput.Position = UDim2.new(0, 160, 0, 95)
+speedInput.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+speedInput.Text = tostring(flySpeed)
+speedInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+speedInput.TextSize = 15
+speedInput.Font = Enum.Font.SourceSansBold
+speedInput.PlaceholderText = "Núm"
+speedInput.Parent = mainFrame
+
+local inputCorner = Instance.new("UICorner")
+inputCorner.CornerRadius = UDim.new(0, 6)
+inputCorner.Parent = speedInput
+
+speedInput.FocusLost:Connect(function()
+    local num = tonumber(speedInput.Text)
+    if num and num >= 0 then
+        flySpeed = num
+    else
+        speedInput.Text = tostring(flySpeed)
+    end
+end)
+
+-- Botón Activar / Desactivar Giro (Fling)
+local flingButton = Instance.new("TextButton")
+flingButton.Name = "FlingButton"
+flingButton.Size = UDim2.new(0, 220, 0, 40)
+flingButton.Position = UDim2.new(0.5, -110, 0, 135)
+flingButton.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
+flingButton.Text = "Activar Giro"
+flingButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+flingButton.TextSize = 16
+flingButton.Font = Enum.Font.SourceSansBold
+flingButton.Parent = mainFrame
+
+local flingBtnCorner = Instance.new("UICorner")
+flingBtnCorner.CornerRadius = UDim.new(0, 8)
+flingBtnCorner.Parent = flingButton
+
+-- Control de Velocidad de Giro
+local flingSpeedLabel = Instance.new("TextLabel")
+flingSpeedLabel.Name = "FlingSpeedLabel"
+flingSpeedLabel.Size = UDim2.new(0, 100, 0, 30)
+flingSpeedLabel.Position = UDim2.new(0, 30, 0, 185)
+flingSpeedLabel.BackgroundTransparency = 1
+flingSpeedLabel.Text = "Velocidad Giro:"
+flingSpeedLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+flingSpeedLabel.TextSize = 14
+flingSpeedLabel.Font = Enum.Font.SourceSansBold
+flingSpeedLabel.TextXAlignment = Enum.TextXAlignment.Left
+flingSpeedLabel.Parent = mainFrame
+
+local flingSpeedInput = Instance.new("TextBox")
+flingSpeedInput.Name = "FlingSpeedInput"
+flingSpeedInput.Size = UDim2.new(0, 100, 0, 30)
+flingSpeedInput.Position = UDim2.new(0, 160, 0, 185)
+flingSpeedInput.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+flingSpeedInput.Text = tostring(flingSpeed)
+flingSpeedInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+flingSpeedInput.TextSize = 15
+flingSpeedInput.Font = Enum.Font.SourceSansBold
+flingSpeedInput.PlaceholderText = "Núm"
+flingSpeedInput.Parent = mainFrame
+
+local flingInputCorner = Instance.new("UICorner")
+flingInputCorner.CornerRadius = UDim.new(0, 6)
+flingInputCorner.Parent = flingSpeedInput
+
+flingSpeedInput.FocusLost:Connect(function()
+    local num = tonumber(flingSpeedInput.Text)
+    if num and num >= 0 then
+        flingSpeed = num
+        if bav then
+            bav.AngularVelocity = Vector3.new(0, flingSpeed, 0)
+        end
+    else
+        flingSpeedInput.Text = tostring(flingSpeed)
+    end
+end)
+
+-- Etiqueta de Controles
+local infoLabel = Instance.new("TextLabel")
+infoLabel.Size = UDim2.new(1, -20, 0, 120)
+infoLabel.Position = UDim2.new(0, 10, 0, 225)
+infoLabel.BackgroundTransparency = 1
+infoLabel.Text = "Controles:\nW, A, S, D = Dirección\nE = Volar más alto | Q = Descender\n\nAjusta 'Velocidad Giro' para controlar la fuerza de rotación sin salir del mapa."
+infoLabel.TextColor3 = Color3.fromRGB(180, 180, 190)
+infoLabel.TextSize = 13
+infoLabel.Font = Enum.Font.SourceSans
+infoLabel.TextWrapped = true
+infoLabel.Parent = mainFrame
+
+--------------------------------------------------------------------------------
+-- LÓGICA DE GIRO (FLING MODERADO)
+--------------------------------------------------------------------------------
+
+local function stopFling()
+    flingActive = false
+    if bav then bav:Destroy() end
+    flingButton.Text = "Activar Giro"
+    flingButton.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
+end
+
+local function startFling(vehicle)
+    local targetPart = vehicle.PrimaryPart or vehicle:FindFirstChildWhichIsA("BasePart")
+    if not targetPart then return end
+
+    flingActive = true
+    flingButton.Text = "Desactivar Giro"
+    flingButton.BackgroundColor3 = Color3.fromRGB(220, 53, 69)
+
+    -- Aplicar velocidad angular controlada en el eje Y
+    bav = Instance.new("BodyAngularVelocity")
+    bav.MaxTorque = Vector3.new(0, math.huge, 0) -- Solo aplica fuerza en el eje Y para mantener estabilidad
+    bav.AngularVelocity = Vector3.new(0, flingSpeed, 0)
+    bav.Parent = targetPart
+end
+
+flingButton.MouseButton1Click:Connect(function()
+    local character = LocalPlayer.Character
+    if character and character:FindFirstChildOfClass("Humanoid") then
+        local seat = character.Humanoid.SeatPart
+        if seat and seat.Parent then
+            local vehicle = seat.Parent
+            if flingActive then
+                stopFling()
+            else
+                startFling(vehicle)
+            end
+        end
+    end
+end)
+
+--------------------------------------------------------------------------------
+-- LÓGICA DE MOVIMIENTO Y VUELO
+--------------------------------------------------------------------------------
+
+local function stopFlying()
+    flying = false
+    if renderConnection then renderConnection:Disconnect() end
+    if bv then bv:Destroy() end
+    if bg then bg:Destroy() end
+    
+    toggleButton.Text = "Activar Vuelo"
+    toggleButton.BackgroundColor3 = Color3.fromRGB(40, 167, 69)
+end
+
+local function startFlying(vehicle)
+    if flying then return end
+    flying = true
+
+    toggleButton.Text = "Desactivar Vuelo"
+    toggleButton.BackgroundColor3 = Color3.fromRGB(220, 53, 69)
+
+    local targetPart = vehicle.PrimaryPart or vehicle:FindFirstChildWhichIsA("BasePart")
+    if not targetPart then return end
+
+    bv = Instance.new("BodyVelocity")
+    bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+    bv.Velocity = Vector3.zero
+    bv.Parent = targetPart
+
+    bg = Instance.new("BodyGyro")
+    bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+    bg.CFrame = targetPart.CFrame
+    bg.Parent = targetPart
+
+    renderConnection = RunService.RenderStepped:Connect(function()
+        if not flying or not vehicle or not vehicle.Parent then
+            stopFlying()
+            return
+        end
+
+        local moveDir = Vector3.zero
+        local camCF = Camera.CFrame
+
+        if keysPressed[Enum.KeyCode.W] then moveDir = moveDir + camCF.LookVector end
+        if keysPressed[Enum.KeyCode.S] then moveDir = moveDir - camCF.LookVector end
+        if keysPressed[Enum.KeyCode.A] then moveDir = moveDir - camCF.RightVector end
+        if keysPressed[Enum.KeyCode.D] then moveDir = moveDir + camCF.RightVector end
+        if keysPressed[Enum.KeyCode.E] then moveDir = moveDir + Vector3.new(0, 1, 0) end
+        if keysPressed[Enum.KeyCode.Q] then moveDir = moveDir - Vector3.new(0, 1, 0) end
+
+        bv.Velocity = moveDir * flySpeed
+        bg.CFrame = camCF
+    end)
+end
+
+toggleButton.MouseButton1Click:Connect(function()
+    if flying then
+        stopFlying()
+    else
+        local character = LocalPlayer.Character
+        if character and character:FindFirstChildOfClass("Humanoid") then
+            local seat = character.Humanoid.SeatPart
+            if seat and seat.Parent then
+                local vehicle = seat.Parent
+                startFlying(vehicle)
+            end
+        end
+    end
+end)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed then
+        keysPressed[input.KeyCode] = true
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    keysPressed[input.KeyCode] = nil
+end)
+
+--------------------------------------------------------------------------------
+-- SISTEMA DE ARRASTRE DEL HUD
+--------------------------------------------------------------------------------
+local dragging = false
+local dragInput, dragStart, startPos
+
+local function update(input)
+    local delta = input.Position - dragStart
+    mainFrame.Position = UDim2.new(
+        startPos.X.Scale, 
+        startPos.X.Offset + delta.X, 
+        startPos.Y.Scale, 
+        startPos.Y.Offset + delta.Y
+    )
+end
+
+mainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = mainFrame.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+mainFrame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        update(input)
+    end
+end)
