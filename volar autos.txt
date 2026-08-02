@@ -1,0 +1,50 @@
+local UIS = game:GetService("UserInputService")
+
+local keys = {
+	W = false,
+	A = false,
+	S = false,
+	D = false
+}
+
+UIS.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+
+	if input.KeyCode == Enum.KeyCode.W then keys.W = true end
+	if input.KeyCode == Enum.KeyCode.S then keys.S = true end
+	if input.KeyCode == Enum.KeyCode.A then keys.A = true end
+	if input.KeyCode == Enum.KeyCode.D then keys.D = true end
+end)
+
+UIS.InputEnded:Connect(function(input)
+	if input.KeyCode == Enum.KeyCode.W then keys.W = false end
+	if input.KeyCode == Enum.KeyCode.S then keys.S = false end
+	if input.KeyCode == Enum.KeyCode.A then keys.A = false end
+	if input.KeyCode == Enum.KeyCode.D then keys.D = false end
+end)
+
+game:GetService("RunService").RenderStepped:Connect(function()
+	local cam = workspace.CurrentCamera
+	local speed = tonumber(Speed.Text) or 50
+
+	local move = Vector3.zero
+
+	if keys.W then
+		move += cam.CFrame.LookVector
+	end
+	if keys.S then
+		move -= cam.CFrame.LookVector
+	end
+	if keys.A then
+		move -= cam.CFrame.RightVector
+	end
+	if keys.D then
+		move += cam.CFrame.RightVector
+	end
+
+	if move.Magnitude > 0 then
+		BV.Velocity = move.Unit * speed
+	else
+		BV.Velocity = Vector3.zero
+	end
+end)
